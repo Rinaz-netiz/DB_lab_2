@@ -8,7 +8,7 @@ SRCS = main.cpp
 
 all: $(TARGET)
 
-$(TARGET): $(SRCS) Database.hpp
+$(TARGET): $(SRCS) Database.h
 	$(CXX) $(CXXFLAGS) $(SRCS) -o $(TARGET) $(LDFLAGS)
 
 clean:
