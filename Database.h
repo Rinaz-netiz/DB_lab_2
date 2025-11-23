@@ -426,7 +426,7 @@ public:
 
     void clear()
     {
-        createNew(20);
+        createNew(100);
     }
 
     void backup() const

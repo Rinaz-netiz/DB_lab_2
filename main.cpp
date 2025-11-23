@@ -1,8 +1,8 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-#include "httplib.h"   // Сервер
-#include "json.hpp"    // JSON парсер
+#include "httplib.h"
+#include "json.hpp"
 #include "Database.h"
 
 using namespace std;
@@ -50,11 +50,6 @@ int main()
 
     svr.Get("/api/all", [&](const httplib::Request&, httplib::Response& res)
     {
-        // 1. Получи вектор записей: db.getAll()
-        // 2. Создай json массив: json j_arr = json::array();
-        // 3. В цикле пройдись по вектору и добавь объекты в массив:
-        //    j_arr.push_back({ {"id", r.id}, {"title", r.title}, ... });
-        // 4. Отправь ответ: res.set_content(j_arr.dump(), "application/json");
         json j_arr = getArrayJson(db.getAll());
 
         res.set_content(j_arr.dump(), "application/json");
@@ -94,21 +89,6 @@ int main()
 
     svr.Post("/api/search/id", [&](const httplib::Request& req, httplib::Response& res)
     {
-        // 1. Распарси json, достань id.
-        // 2. Создай переменную int reads = 0;
-        // 3. Вызови db.findById(id, reads);
-        // 4. Сформируй json ответ:
-        //    json resp;
-        //    resp["reads"] = reads;
-        //    if (result != nullptr) {
-        //        resp["found"] = true;
-        //        resp["data"] = { {"title", result->title}, ... };
-        //    } else {
-        //        resp["found"] = false;
-        //    }
-        // 5. Отправь resp.dump()
-
-        // ТВОЙ КОД ЗДЕСЬ:
         auto j = json::parse(req.body);
         int32_t reads = 0;
         Record* record_ptr = db.findById(j["id"], reads);
@@ -136,10 +116,6 @@ int main()
 
     svr.Post("/api/search/title", [&](const httplib::Request& req, httplib::Response& res)
     {
-        // 1. Достань title из json.
-        // 2. Получи вектор: db.findByTitle(title);
-        // 3. Упакуй вектор в json массив (как в api/all).
-        // 4. Отправь.
         auto j = json::parse(req.body);
 
         json j_arr = getArrayJson(db.findByTitle(std::string(j["title"])));
@@ -227,4 +203,4 @@ int main()
 
     std::cout << "Server running on http://localhost:8080" << std::endl;
     svr.listen("0.0.0.0", 8080);
-}
+};
