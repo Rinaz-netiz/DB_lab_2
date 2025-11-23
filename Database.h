@@ -47,7 +47,7 @@ private:
 
     void writeHeader() const
     {
-        std::fstream file(kDbFile, std::ios::binary | std::ios::in  | std::ios::out);
+        std::fstream file(kDbFile, std::ios::binary | std::ios::in | std::ios::out);
 
         if (!file.is_open())
         {
@@ -232,7 +232,6 @@ public:
 
     bool insert(int32_t id, string title, double price, int32_t quantity)
     {
-
         if (id <= 0)
         {
             return false;
@@ -474,8 +473,9 @@ public:
         try
         {
             std::filesystem::copy_file(kDbFile, kBackupFile,
-                                                  std::filesystem::copy_options::overwrite_existing);
-        } catch (const std::filesystem::filesystem_error& e)
+                                       std::filesystem::copy_options::overwrite_existing);
+        }
+        catch (const std::filesystem::filesystem_error& e)
         {
             std::cerr << "Couldn't make backup database" << std::endl;
         }
