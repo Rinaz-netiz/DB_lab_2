@@ -42,6 +42,10 @@ private:
 
     int32_t hash(const int32_t id) const
     {
+        if (capacity_ == 0)
+        {
+            throw std::runtime_error("DB doesn't exist");
+        }
         return std::abs(id) % capacity_;
     }
 
@@ -103,8 +107,12 @@ private:
     }
 
     template <class T>
-    vector<Record> findBy(T field, const Fields field_type) const
+    vector<Record> findBy(const T& field, const Fields field_type) const
     {
+        if (capacity_ == 0)
+        {
+            throw std::runtime_error("DB doesn't exist");
+        }
         vector<Record> result;
 
         std::ifstream in(kDbFile, std::ios::binary);
@@ -151,7 +159,7 @@ private:
     }
 
     template <class T>
-    int32_t deleteBy(T field, const Fields field_type)
+    int32_t deleteBy(const T& field, const Fields field_type)
     {
         std::fstream file(kDbFile, std::ios::binary | std::ios::in | std::ios::out);
 
@@ -230,12 +238,34 @@ public:
         }
     }
 
+    bool create()
+    {
+        if (std::filesystem::exists(kDbFile))
+        {
+            return false;
+        }
+        createNew(100);
+        return true;
+    }
+
+    void drop()
+    {
+        if (std::filesystem::exists(kDbFile))
+        {
+            std::filesystem::remove(kDbFile);
+        }
+        capacity_ = 0;
+        count_ = 0;
+    }
+
     bool insert(int32_t id, string title, double price, int32_t quantity)
     {
         if (id <= 0)
         {
             return false;
         }
+
+        const int32_t ind = hash(id);
 
         if (count_ > capacity_ * 0.7)
         {
@@ -248,8 +278,6 @@ public:
         {
             throw std::runtime_error("File for db didn't open to insert");
         }
-
-        const int32_t ind = hash(id);
 
         for (int32_t idx = 0; idx < capacity_; ++idx)
         {
