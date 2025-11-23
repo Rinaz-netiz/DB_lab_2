@@ -176,6 +176,23 @@ int main()
         res.set_content(std::to_string(count), "text/plain");
     });
 
+    svr.Post("/api/update", [&](const httplib::Request& req, httplib::Response& res)
+    {
+        try {
+            auto j = json::parse(req.body);
+            bool success = db.update(j["id"], j["title"], j["price"], j["quantity"]);
+
+            if (success) {
+                res.set_content("Updated (O(1))", "text/plain");
+            } else {
+                res.status = 404;
+                res.set_content("ID not found", "text/plain");
+            }
+        } catch (const std::exception& e) {
+            res.status = 400;
+            res.set_content(e.what(), "text/plain");
+        }
+    });
 
     svr.Post("/api/clear", [&](const auto&, auto& res)
     {

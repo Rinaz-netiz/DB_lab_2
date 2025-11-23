@@ -424,6 +424,46 @@ public:
         return list;
     }
 
+    bool update(const int32_t id, const string& new_title, const double new_price, const int32_t new_quantity)
+    {
+        std::fstream file(kDbFile, std::ios::binary | std::ios::in | std::ios::out);
+        if (!file.is_open())
+        {
+            return false;
+        }
+
+        const int32_t ind = hash(id);
+
+        for (int32_t idx = 0; idx < capacity_; ++idx)
+        {
+            int32_t offset = kHeaderSize + ((ind + idx) % capacity_) * kRecordSize;
+
+            file.seekg(offset, std::ios::beg);
+            Record record;
+            file.read(reinterpret_cast<char*>(&record), kRecordSize);
+
+            if (!record.is_deleted && record.id == id)
+            {
+                std::strncpy(record.title, new_title.c_str(), sizeof(record.title));
+                record.title[sizeof(record.title) - 1] = '\0';
+                record.price = new_price;
+                record.quantity = new_quantity;
+
+                file.seekp(offset, std::ios::beg);
+                file.write(reinterpret_cast<char*>(&record), kRecordSize);
+
+                return true;
+            }
+
+            if (record.is_deleted && record.id == 0)
+            {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
     void clear()
     {
         createNew(100);
