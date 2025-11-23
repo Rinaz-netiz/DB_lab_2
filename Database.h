@@ -29,8 +29,8 @@ struct Header
     int32_t count;
 };
 
-constexpr int32_t kRecord_size = sizeof(Record);
-constexpr int32_t kHeader_size = sizeof(Header);
+constexpr int32_t kRecordSize = sizeof(Record);
+constexpr int32_t kHeaderSize = sizeof(Header);
 
 enum class Fields { BY_TITLE, BY_PRICE, BY_QUANTITY };
 
@@ -42,7 +42,7 @@ private:
 
     int32_t hash(const int32_t id) const
     {
-        return id % capacity_;
+        return std::abs(id) % capacity_;
     }
 
     void writeHeader() const
@@ -57,7 +57,7 @@ private:
         Header header{capacity_, count_};
 
         file.seekp(0, std::ios::beg);
-        file.write(reinterpret_cast<char*>(&header), kHeader_size);
+        file.write(reinterpret_cast<char*>(&header), kHeaderSize);
 
         file.close();
     }
@@ -72,7 +72,7 @@ private:
         }
 
         Header header{new_capacity, 0};
-        out.write(reinterpret_cast<char*>(&header), kHeader_size);
+        out.write(reinterpret_cast<char*>(&header), kHeaderSize);
 
         capacity_ = new_capacity;
         count_ = 0;
@@ -83,7 +83,7 @@ private:
 
         for (int32_t count = 0; count < new_capacity; ++count)
         {
-            out.write(reinterpret_cast<char*>(&record), kRecord_size);
+            out.write(reinterpret_cast<char*>(&record), kRecordSize);
         }
 
         out.close();
@@ -114,12 +114,12 @@ private:
             throw std::runtime_error("File for db didn't open to find by field");
         }
 
-        in.seekg(kHeader_size, std::ios::beg);
+        in.seekg(kHeaderSize, std::ios::beg);
 
         for (int32_t idx = 0; idx < capacity_; ++idx)
         {
             Record record;
-            in.read(reinterpret_cast<char*>(&record), kRecord_size);
+            in.read(reinterpret_cast<char*>(&record), kRecordSize);
 
             if (record.is_deleted == true)
             {
@@ -162,12 +162,12 @@ private:
 
         int32_t count = 0;
 
-        file.seekg(kHeader_size, std::ios::beg);
+        file.seekg(kHeaderSize, std::ios::beg);
 
         for (int32_t idx = 0; idx < capacity_; ++idx)
         {
             Record record;
-            file.read(reinterpret_cast<char*>(&record), kRecord_size);
+            file.read(reinterpret_cast<char*>(&record), kRecordSize);
 
             if (record.is_deleted == true)
             {
@@ -198,8 +198,8 @@ private:
             if (flag == true)
             {
                 record.is_deleted = true;
-                file.seekp(-kRecord_size, std::ios::cur);
-                file.write(reinterpret_cast<char*>(&record), kRecord_size);
+                file.seekp(-kRecordSize, std::ios::cur);
+                file.write(reinterpret_cast<char*>(&record), kRecordSize);
 
                 --count_;
                 ++count;
@@ -220,7 +220,7 @@ public:
         {
             Header header;
 
-            in.read(reinterpret_cast<char*>(&header), kHeader_size);
+            in.read(reinterpret_cast<char*>(&header), kHeaderSize);
             capacity_ = header.capacity;
             count_ = header.count;
         }
@@ -232,6 +232,12 @@ public:
 
     bool insert(int32_t id, string title, double price, int32_t quantity)
     {
+
+        if (id <= 0)
+        {
+            return false;
+        }
+
         if (count_ > capacity_ * 0.7)
         {
             resize();
@@ -249,8 +255,8 @@ public:
         for (int32_t idx = 0; idx < capacity_; ++idx)
         {
             Record record;
-            file.seekg(kHeader_size + ((ind + idx) % capacity_) * kRecord_size, std::ios::beg);
-            file.read(reinterpret_cast<char*>(&record), kRecord_size);
+            file.seekg(kHeaderSize + ((ind + idx) % capacity_) * kRecordSize, std::ios::beg);
+            file.read(reinterpret_cast<char*>(&record), kRecordSize);
 
             if (!record.is_deleted && record.id == id)
             {
@@ -268,8 +274,8 @@ public:
                 record.price = price;
                 record.quantity = quantity;
 
-                file.seekp(kHeader_size + ((ind + idx) % capacity_) * kRecord_size, std::ios::beg);
-                file.write(reinterpret_cast<char*>(&record), kRecord_size);
+                file.seekp(kHeaderSize + ((ind + idx) % capacity_) * kRecordSize, std::ios::beg);
+                file.write(reinterpret_cast<char*>(&record), kRecordSize);
 
                 ++count_;
                 writeHeader();
@@ -302,8 +308,8 @@ public:
         for (int32_t idx = 0; idx < capacity_; ++idx)
         {
             Record record;
-            in.seekg(kHeader_size + ((ind + idx) % capacity_) * kRecord_size, std::ios::beg);
-            in.read(reinterpret_cast<char*>(&record), kRecord_size);
+            in.seekg(kHeaderSize + ((ind + idx) % capacity_) * kRecordSize, std::ios::beg);
+            in.read(reinterpret_cast<char*>(&record), kRecordSize);
             ++disk_reads;
 
             if (record.is_deleted == true && record.id == 0)
@@ -336,6 +342,46 @@ public:
         return findBy(price, Fields::BY_PRICE);
     }
 
+    bool deleteById(const int32_t id)
+    {
+        std::fstream file(kDbFile, std::ios::binary | std::ios::in | std::ios::out);
+
+        if (!file.is_open())
+        {
+            throw std::runtime_error("Couldn't open database to delete by id");
+        }
+
+        const int32_t hash_id = hash(id);
+
+        file.seekg(kHeaderSize, std::ios::beg);
+
+        for (int32_t idx = 0; idx < capacity_; ++idx)
+        {
+            Record record;
+            file.seekg(kHeaderSize + ((hash_id + idx) % capacity_) * kRecordSize, std::ios::beg);
+            file.read(reinterpret_cast<char*>(&record), kRecordSize);
+
+            if (record.is_deleted && record.id == 0)
+            {
+                return false;
+            }
+
+            if (!record.is_deleted && record.id == id)
+            {
+                record.is_deleted = true;
+
+                file.seekp(kHeaderSize + ((hash_id + idx) % capacity_) * kRecordSize, std::ios::beg);
+                file.write(reinterpret_cast<char*>(&record), kRecordSize);
+
+                --count_;
+                writeHeader();
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     int32_t deleteByTitle(const std::string& title)
     {
         return deleteBy(title, Fields::BY_TITLE);
@@ -362,12 +408,12 @@ public:
             throw std::runtime_error("File for db didn't open to getAll");
         }
 
-        in.seekg(kHeader_size, std::ios::beg);
+        in.seekg(kHeaderSize, std::ios::beg);
 
         for (int32_t idx = 0; idx < capacity_; ++idx)
         {
             Record record;
-            in.read(reinterpret_cast<char*>(&record), kRecord_size);
+            in.read(reinterpret_cast<char*>(&record), kRecordSize);
 
             if (record.is_deleted == false)
             {
@@ -389,7 +435,7 @@ public:
         {
             std::filesystem::copy_file(kDbFile, kBackupFile,
                                                   std::filesystem::copy_options::overwrite_existing);
-        } catch (std::filesystem::filesystem_error)
+        } catch (const std::filesystem::filesystem_error& e)
         {
             std::cerr << "Couldn't make backup database" << std::endl;
         }
@@ -409,7 +455,7 @@ public:
 
         Header header;
 
-        in.read(reinterpret_cast<char*>(&header), kHeader_size);
+        in.read(reinterpret_cast<char*>(&header), kHeaderSize);
 
         capacity_ = header.capacity;
         count_ = header.count;
@@ -433,12 +479,12 @@ public:
 
         out << "id,title,price,quantity\n";
 
-        in.seekg(kHeader_size, std::ios::beg);
+        in.seekg(kHeaderSize, std::ios::beg);
 
         for (int32_t idx = 0; idx < capacity_; ++idx)
         {
             Record record;
-            in.read(reinterpret_cast<char*>(&record), kRecord_size);
+            in.read(reinterpret_cast<char*>(&record), kRecordSize);
 
             if (record.is_deleted)
             {
